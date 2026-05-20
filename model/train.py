@@ -2,7 +2,7 @@ import pickle
 from pathlib import Path
 
 import pandas as pd
-from xgboost import XGBClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier
 
 from blocking.block import build_candidate_pairs
 from data.generate import generate_base_records
@@ -10,6 +10,11 @@ from data.inject_noise import create_noisy_views
 from features.engineer import FEATURE_COLUMNS, build_features
 from ingestion.ingest import initialize_database
 from common.utils import train_test_splits
+
+try:
+    from xgboost import XGBClassifier
+except ImportError:  # pragma: no cover
+    XGBClassifier = None
 
 
 def bootstrap_training_if_needed():
@@ -52,17 +57,26 @@ def bootstrap_training_if_needed():
 def _fit_model(df: pd.DataFrame):
     positives = max(int(df["label"].sum()), 1)
     negatives = max(len(df) - positives, 1)
-    model = XGBClassifier(
-        objective="binary:logistic",
-        eval_metric="logloss",
-        scale_pos_weight=negatives / positives,
-        max_depth=4,
-        learning_rate=0.1,
-        n_estimators=120,
-        subsample=0.9,
-        colsample_bytree=0.9,
-        random_state=42,
-    )
+    if XGBClassifier is not None:
+        model = XGBClassifier(
+            objective="binary:logistic",
+            eval_metric="logloss",
+            scale_pos_weight=negatives / positives,
+            max_depth=4,
+            learning_rate=0.1,
+            n_estimators=120,
+            subsample=0.9,
+            colsample_bytree=0.9,
+            random_state=42,
+        )
+    else:
+        # Vercel's Python environment is happier with pure sklearn than heavy native ML wheels.
+        model = HistGradientBoostingClassifier(
+            learning_rate=0.1,
+            max_depth=4,
+            max_iter=180,
+            random_state=42,
+        )
     model.fit(df[FEATURE_COLUMNS], df["label"])
     return model
 
