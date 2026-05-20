@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -11,6 +13,7 @@ from ingestion.ingest import initialize_database
 
 settings = get_settings()
 app = FastAPI(title=settings.app_name)
+logger = logging.getLogger(__name__)
 
 app.add_middleware(
     CORSMiddleware,
@@ -23,7 +26,12 @@ app.add_middleware(
 
 @app.on_event("startup")
 def on_startup():
-    initialize_database()
+    try:
+        initialize_database()
+        app.state.startup_error = None
+    except Exception as exc:  # pragma: no cover
+        app.state.startup_error = str(exc)
+        logger.exception("Startup database initialization failed")
 
 
 app.include_router(health_router)
