@@ -43,7 +43,17 @@ def run_match(request: MatchRunRequest, db: Session = Depends(get_db)):
 def latest_run_status(db: Session = Depends(get_db)):
     run = db.execute(select(MatchRun).order_by(desc(MatchRun.started_at)).limit(1)).scalar_one_or_none()
     if run is None:
-        raise HTTPException(status_code=404, detail="No runs found.")
+        return {
+            "run_id": None,
+            "status": "idle",
+            "total_a_records": 0,
+            "total_b_records": 0,
+            "candidate_pairs": 0,
+            "auto_matches": 0,
+            "auto_rejects": 0,
+            "llm_resolved": 0,
+            "metrics_payload": {"stage": "idle", "message": "Upload two CSVs, then run matching."},
+        }
     return _serialize_run(run)
 
 
@@ -68,7 +78,7 @@ def results(
         select(MatchRun).order_by(desc(MatchRun.started_at)).limit(1)
     ).scalar_one_or_none()
     if latest_run is None:
-        raise HTTPException(status_code=404, detail="No runs found.")
+        return []
 
     patient_a = aliased(Patient)
     patient_b = aliased(Patient)

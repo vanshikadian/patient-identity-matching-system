@@ -60,8 +60,13 @@ export default function App() {
           setStatus(latest.metrics_payload?.message || "The matching run failed.");
           window.clearInterval(intervalId);
         }
-      } catch {
-        // Ignore transient polling errors.
+      } catch (error) {
+        if (error?.response?.status === 404) {
+          setIsRunning(false);
+          setStatus("The previous run was cleared after a new upload. Ready for a fresh run.");
+          await refresh();
+          window.clearInterval(intervalId);
+        }
       }
     }, 2000);
 
@@ -77,13 +82,22 @@ export default function App() {
       setResults(resultsPayload);
       setMetrics(metricsPayload.metrics_payload || null);
       setRunSummary(metricsPayload);
+      if (metricsPayload?.metrics_payload?.message) {
+        setStatus(metricsPayload.metrics_payload.message);
+      }
     } catch {
       try {
         const latestRun = await fetchLatestRun();
         setRunSummary(latestRun);
         setMetrics(latestRun.metrics_payload || null);
+        setResults([]);
+        if (latestRun?.metrics_payload?.message) {
+          setStatus(latestRun.metrics_payload.message);
+        }
       } catch {
-        // Ignore empty-state load failures.
+        setResults([]);
+        setMetrics(null);
+        setRunSummary(null);
       }
     }
   }
@@ -93,6 +107,10 @@ export default function App() {
       return;
     }
     const response = await uploadCsv(source, files[source]);
+    setIsRunning(false);
+    setResults([]);
+    setMetrics(null);
+    setRunSummary(null);
     setUploadSummary((prev) => ({ ...prev, [source]: response.schema }));
     setStatus(`${source} upload complete: ${response.records_ingested} records ingested.`);
     await refresh();

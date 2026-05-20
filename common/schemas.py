@@ -9,15 +9,15 @@ class MatchRunRequest(BaseModel):
 
 
 class MatchRunStatusResponse(BaseModel):
-    run_id: str
-    status: str
-    total_a_records: int
-    total_b_records: int
-    candidate_pairs: int
-    auto_matches: int
-    auto_rejects: int
-    llm_resolved: int
-    metrics_payload: dict[str, Any] | None
+    run_id: str | None = None
+    status: str = "idle"
+    total_a_records: int = 0
+    total_b_records: int = 0
+    candidate_pairs: int = 0
+    auto_matches: int = 0
+    auto_rejects: int = 0
+    llm_resolved: int = 0
+    metrics_payload: dict[str, Any] | None = None
 
 
 class PairDetailResponse(BaseModel):
@@ -36,15 +36,15 @@ class PairDetailResponse(BaseModel):
 
 
 class MetricsResponse(BaseModel):
-    run_id: str
-    status: str
+    run_id: str | None = None
+    status: str = "idle"
     total_a_records: int | None = None
     total_b_records: int | None = None
-    metrics_payload: dict[str, Any] | None
-    candidate_pairs: int
-    auto_matches: int
-    auto_rejects: int
-    llm_resolved: int
+    metrics_payload: dict[str, Any] | None = None
+    candidate_pairs: int = 0
+    auto_matches: int = 0
+    auto_rejects: int = 0
+    llm_resolved: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 
