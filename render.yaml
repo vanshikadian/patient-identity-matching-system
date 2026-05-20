@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: patient-identity-matching-api
+    env: docker
+    dockerfilePath: ./Dockerfile.api
+    autoDeploy: true
+    envVars:
+      - key: API_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+

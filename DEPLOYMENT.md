@@ -1,66 +1,76 @@
 # Deployment Guide
 
-## Fastest path if you want everything on Vercel
-
-This repo now includes a root `vercel.json` that is set up for Vercel Services:
-
-- frontend at `/`
-- FastAPI backend at `/api`
-
-That means the frontend can talk to the backend with a relative `/api` URL in one Vercel project.
-
-### Before you deploy
-
-1. Push the repo to GitHub.
-2. Import the repo into Vercel.
-3. In the Vercel dashboard, set the Framework Preset to **Services**.
-4. Add environment variables:
-   - `DATABASE_URL`
-   - `API_KEY`
-   - `ANTHROPIC_API_KEY` (optional)
-5. Redeploy.
-
-### Important note
-
-This is the easiest path if you want one hosted project quickly.
-
-The backend still uses an in-process background runner for match jobs. That is acceptable for a quick demo deployment, but for very large runs or stronger production reliability, a separate persistent worker model would still be better.
-
-## Recommended split
+## Recommended setup
 
 - Frontend: Vercel
-- Backend: Render or Railway
-- Database: Neon / Railway Postgres / Supabase
+- Backend: Render
+- Database: Neon Postgres
 
-This project currently uses a Python background run manager. That makes it a poor fit for a purely serverless backend deployment without refactoring the worker model.
+This project is a good fit for that split because the frontend is light, while the backend needs a heavier Python/ML runtime than Vercel handles comfortably.
 
-## Frontend on Vercel
+## 1. Create the database in Neon
 
-1. Import the repo into Vercel.
-2. Set the root directory to `frontend`.
-3. Build command: `npm run build`
-4. Output directory: `dist`
-5. Add `VITE_API_KEY` if you want to override the default.
-6. Point the frontend API base URL to your deployed backend before production use.
+1. Create a Neon project.
+2. Copy the connection string.
+3. Save it as `DATABASE_URL`.
 
-## Backend on Render or Railway
+Use the pooled or direct Postgres URL Neon gives you. Either is fine for this project.
 
-1. Deploy from the repo root.
-2. Use `Dockerfile.api`.
-3. Set environment variables:
+## 2. Deploy the backend on Render
+
+The repo includes [render.yaml](/Users/vanshika/Patient%20Identity%20Matching%20System/render.yaml:1), so Render can read the service config automatically.
+
+1. Go to Render and choose **New +** -> **Blueprint**.
+2. Connect this GitHub repo.
+3. Render should detect `render.yaml`.
+4. Create the service.
+5. Add these environment variables in Render:
    - `DATABASE_URL`
    - `API_KEY`
-   - `ANTHROPIC_API_KEY` (optional)
-4. Expose port `8000`.
-5. Provision managed Postgres and connect it through `DATABASE_URL`.
+   - `ANTHROPIC_API_KEY` optional
 
-## Database
+Suggested values:
+- `API_KEY=demo-key`
+- `ANTHROPIC_API_KEY` can be left blank
 
-- The local Docker setup uses `pgvector/pgvector:pg15`.
-- For hosted deployments, use a managed Postgres instance.
-- If you want vector support later, make sure the target platform supports the extension or keep the JSON embedding fallback.
+The backend runs from [Dockerfile.api](/Users/vanshika/Patient%20Identity%20Matching%20System/Dockerfile.api:1) and serves FastAPI on port `8000`.
+
+When the deploy finishes, your backend URL will look something like:
+
+```text
+https://patient-identity-matching-api.onrender.com
+```
+
+Check it at:
+
+```text
+https://your-render-url/api/health
+```
+
+## 3. Deploy the frontend on Vercel
+
+1. Import the same GitHub repo into Vercel.
+2. Set the root directory to `frontend`.
+3. Framework: `Vite`
+4. Build command: `npm run build`
+5. Output directory: `dist`
+
+Add these Vercel environment variables:
+
+- `VITE_API_BASE_URL=https://your-render-url/api`
+- `VITE_API_KEY=demo-key`
+
+The frontend already reads those values from [frontend/src/api.js](/Users/vanshika/Patient%20Identity%20Matching%20System/frontend/src/api.js:1), so you do not need to edit code for the split deployment.
+
+## 4. Test the live app
+
+1. Open the Vercel frontend URL.
+2. Upload `records_A_smoke.csv` and `records_B_smoke.csv`.
+3. Click `Run matching`.
+4. Confirm metrics and results populate.
 
 ## Notes
 
-- The frontend and backend should not use `localhost` in deployed environments.
-- Update [frontend/src/api.js](/Users/vanshika/Patient%20Identity%20Matching%20System/frontend/src/api.js:1) to use an environment-driven API URL before deployment.
+- Leaving `ANTHROPIC_API_KEY` blank is okay.
+- The app will still run without the paid Claude layer.
+- For the cleanest demo, use Neon instead of the SQLite fallback.
