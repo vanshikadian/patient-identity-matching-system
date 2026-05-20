@@ -38,6 +38,15 @@ class Settings(BaseSettings):
     def generated_data_dir(self) -> Path:
         return self.artifacts_dir / "generated"
 
+    @property
+    def sqlalchemy_database_url(self) -> str:
+        url = self.database_url.strip()
+        if url.startswith("postgres://"):
+            return "postgresql+psycopg://" + url[len("postgres://") :]
+        if url.startswith("postgresql://") and "+psycopg" not in url:
+            return "postgresql+psycopg://" + url[len("postgresql://") :]
+        return url
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
