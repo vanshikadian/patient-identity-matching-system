@@ -5,7 +5,7 @@
       "routePrefix": "/"
     },
     "api": {
-      "entrypoint": "api/main.py",
+      "entrypoint": "main.py",
       "routePrefix": "/api",
       "maxDuration": 900
     }
