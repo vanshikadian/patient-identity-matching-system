@@ -5,6 +5,7 @@ import pandas as pd
 from sklearn.ensemble import HistGradientBoostingClassifier
 
 from blocking.block import build_candidate_pairs
+from common.config import get_settings
 from data.generate import generate_base_records
 from data.inject_noise import create_noisy_views
 from features.engineer import FEATURE_COLUMNS, build_features
@@ -18,7 +19,7 @@ except ImportError:  # pragma: no cover
 
 
 def bootstrap_training_if_needed():
-    artifact_path = Path("artifacts/models/xgb_model.pkl")
+    artifact_path = get_settings().models_dir / "xgb_model.pkl"
     if artifact_path.exists():
         return artifact_path
 

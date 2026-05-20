@@ -1,12 +1,13 @@
 import json
 import pickle
-from pathlib import Path
 
 from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, precision_score, recall_score, roc_auc_score
 
+from common.config import get_settings
+
 
 def load_model_artifact():
-    with Path("artifacts/models/xgb_model.pkl").open("rb") as handle:
+    with (get_settings().models_dir / "xgb_model.pkl").open("rb") as handle:
         return pickle.load(handle)
 
 
@@ -36,8 +37,9 @@ def calculate_metrics(candidate_pairs) -> dict:
         "evaluated_pairs": len(truth),
         "positive_pairs": int(sum(truth)),
     }
-    Path("artifacts/models").mkdir(parents=True, exist_ok=True)
-    Path("artifacts/models/eval_report.json").write_text(json.dumps(metrics, indent=2))
+    settings = get_settings()
+    settings.models_dir.mkdir(parents=True, exist_ok=True)
+    (settings.models_dir / "eval_report.json").write_text(json.dumps(metrics, indent=2))
     return metrics
 
 
@@ -69,7 +71,7 @@ def evaluate_saved_model():
         "roc_auc": float(roc_auc_score(truth, predictions)),
         "confusion_matrix": confusion_matrix(truth, predictions).tolist(),
     }
-    Path("artifacts/models/eval_report.json").write_text(json.dumps(metrics, indent=2))
+    (get_settings().models_dir / "eval_report.json").write_text(json.dumps(metrics, indent=2))
     return metrics
 
 

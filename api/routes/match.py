@@ -3,9 +3,10 @@ from sqlalchemy import desc, select
 from sqlalchemy.orm import Session, aliased
 
 from api.deps import require_api_key
+from common.config import get_settings
 from common.database import get_db
 from common.models import CandidatePair, MatchRun, Patient
-from common.pipeline import create_match_run
+from common.pipeline import create_match_run, run_matching_pipeline
 from common.run_manager import run_manager
 from common.schemas import MatchResultResponse, MatchRunRequest, MatchRunStatusResponse, PairDetailResponse
 
@@ -23,7 +24,10 @@ def run_match(request: MatchRunRequest, db: Session = Depends(get_db)):
         )
 
     run = create_match_run(db)
-    run_manager.enqueue(run.id, request.top_k)
+    if get_settings().is_serverless_runtime:
+        run = run_matching_pipeline(db, run_id=run.id, top_k=request.top_k)
+    else:
+        run_manager.enqueue(run.id, request.top_k)
     return {
         "run_id": run.id,
         "status": run.status,

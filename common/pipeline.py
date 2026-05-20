@@ -1,11 +1,11 @@
 from datetime import datetime
-from pathlib import Path
 
 import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from blocking.block import build_candidate_pairs
+from common.config import get_settings
 from common.models import CandidatePair, MatchRun, Patient
 from features.engineer import build_features
 from llm.resolver import resolve_ambiguous_pairs
@@ -143,7 +143,7 @@ def fail_match_run(db: Session, run_id: str, message: str) -> None:
 
 
 def _ground_truth_lookup(patient_lookup: dict[str, Patient]) -> dict[str, bool]:
-    path = Path("artifacts/generated/matches.csv")
+    path = get_settings().generated_data_dir / "matches.csv"
     if not path.exists():
         return {}
     df = pd.read_csv(path)
