@@ -4,7 +4,7 @@ import pandas as pd
 from sqlalchemy import delete
 
 from common.database import Base, SessionLocal, engine
-from common.models import CandidatePair, MatchRun, Patient
+from common.models import CandidatePair, GroundTruthMatch, MatchRun, Patient
 from common.utils import hashed_embedding, normalize_phone, normalize_text, normalize_zip, parse_date, sha256_record
 
 
@@ -145,6 +145,7 @@ def ingest_csv(path: str | Path, source: str, replace_existing: bool = True) -> 
         if replace_existing:
             db.execute(delete(CandidatePair))
             db.execute(delete(MatchRun))
+            db.execute(delete(GroundTruthMatch))
             db.execute(delete(Patient).where(Patient.source == source))
             db.commit()
 
@@ -179,6 +180,47 @@ def ingest_csv(path: str | Path, source: str, replace_existing: bool = True) -> 
     return {
         "records_ingested": len(df),
         "schema": metadata,
+    }
+
+
+def ingest_ground_truth_csv(path: str | Path, replace_existing: bool = True) -> dict:
+    initialize_database()
+    df = pd.read_csv(path)
+    normalized_columns = {_normalize_header(column): column for column in df.columns}
+    record_a_col = normalized_columns.get("record_a_id")
+    record_b_col = normalized_columns.get("record_b_id")
+    if not record_a_col or not record_b_col:
+        raise ValueError("Ground truth CSV must include record_a_id and record_b_id columns.")
+
+    trimmed = df[[record_a_col, record_b_col]].copy()
+    trimmed.columns = ["record_a_id", "record_b_id"]
+    trimmed = trimmed.dropna().drop_duplicates()
+
+    with SessionLocal() as db:
+        if replace_existing:
+            db.execute(delete(CandidatePair))
+            db.execute(delete(MatchRun))
+            db.execute(delete(GroundTruthMatch))
+            db.commit()
+
+        for idx, row in enumerate(trimmed.to_dict(orient="records"), start=1):
+            db.add(
+                GroundTruthMatch(
+                    record_a_external_id=str(row["record_a_id"]),
+                    record_b_external_id=str(row["record_b_id"]),
+                )
+            )
+            if idx % 500 == 0:
+                db.flush()
+        db.commit()
+
+    return {
+        "records_ingested": len(trimmed),
+        "schema": {
+            "original_columns": list(df.columns),
+            "mapped_columns": {"record_a_id": record_a_col, "record_b_id": record_b_col},
+            "warnings": [],
+        },
     }
 
 

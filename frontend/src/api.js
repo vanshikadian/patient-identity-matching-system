@@ -14,6 +14,13 @@ export async function uploadCsv(source, file) {
   return response.data;
 }
 
+export async function uploadGroundTruth(file) {
+  const form = new FormData();
+  form.append("file", file);
+  const response = await client.post("/records/upload-ground-truth", form);
+  return response.data;
+}
+
 export async function runMatching() {
   const response = await client.post("/match/run", { top_k: 10 });
   return response.data;

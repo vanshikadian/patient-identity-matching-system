@@ -9,7 +9,7 @@ from common.config import get_settings
 from common.database import get_db
 from common.models import Patient
 from common.schemas import PatientResponse
-from ingestion.ingest import ingest_csv
+from ingestion.ingest import ingest_csv, ingest_ground_truth_csv
 
 
 router = APIRouter(prefix="/records", tags=["records"], dependencies=[Depends(require_api_key)])
@@ -26,6 +26,24 @@ async def upload_records(source: str = Query(..., pattern="^[AB]$"), file: Uploa
     return {
         "message": "Upload processed",
         "source": source,
+        "records_ingested": result["records_ingested"],
+        "schema": result["schema"],
+    }
+
+
+@router.post("/upload-ground-truth")
+async def upload_ground_truth(file: UploadFile = File(...)):
+    settings = get_settings()
+    if not file.filename.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only CSV uploads are supported.")
+    destination = settings.uploads_dir / f"ground_truth_{file.filename}"
+    destination.write_bytes(await file.read())
+    try:
+        result = ingest_ground_truth_csv(destination)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "message": "Ground truth uploaded",
         "records_ingested": result["records_ingested"],
         "schema": result["schema"],
     }

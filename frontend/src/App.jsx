@@ -12,16 +12,16 @@ import {
   YAxis,
 } from "recharts";
 
-import { fetchLatestRun, fetchMetrics, fetchResults, fetchRun, runMatching, uploadCsv } from "./api";
+import { fetchLatestRun, fetchMetrics, fetchResults, fetchRun, runMatching, uploadCsv, uploadGroundTruth } from "./api";
 import InfoPill from "./components/InfoPill";
 import MetricCard from "./components/MetricCard";
 import ResultsTable from "./components/ResultsTable";
 import UploadCard from "./components/UploadCard";
 
 export default function App() {
-  const [files, setFiles] = useState({ A: null, B: null });
+  const [files, setFiles] = useState({ A: null, B: null, GT: null });
   const [status, setStatus] = useState("Upload two CSVs, then run matching to compute live metrics.");
-  const [uploadSummary, setUploadSummary] = useState({ A: null, B: null });
+  const [uploadSummary, setUploadSummary] = useState({ A: null, B: null, GT: null });
   const [results, setResults] = useState([]);
   const [metrics, setMetrics] = useState(null);
   const [runSummary, setRunSummary] = useState(null);
@@ -116,6 +116,20 @@ export default function App() {
     await refresh();
   }
 
+  async function handleGroundTruthUpload() {
+    if (!files.GT) {
+      return;
+    }
+    const response = await uploadGroundTruth(files.GT);
+    setIsRunning(false);
+    setResults([]);
+    setMetrics(null);
+    setRunSummary(null);
+    setUploadSummary((prev) => ({ ...prev, GT: response.schema }));
+    setStatus(`Ground truth upload complete: ${response.records_ingested} match pairs ingested.`);
+    await refresh();
+  }
+
   async function handleRun() {
     setIsRunning(true);
     setStatus("Queueing a robust background matching run...");
@@ -200,6 +214,16 @@ export default function App() {
                   onUpload={() => handleUpload(source)}
                 />
               ))}
+            </div>
+            <div className="mt-4">
+              <UploadCard
+                source="GT"
+                title="Ground Truth (Optional)"
+                buttonLabel="Upload matches.csv"
+                summary={uploadSummary.GT}
+                onFileChange={(event) => setFiles((prev) => ({ ...prev, GT: event.target.files?.[0] || null }))}
+                onUpload={handleGroundTruthUpload}
+              />
             </div>
             <button
               className="mt-6 rounded-full bg-warm px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"

@@ -1,11 +1,12 @@
-import unittest
 import os
+import tempfile
+import unittest
 
 import pandas as pd
 
 os.environ["DATABASE_URL"] = "sqlite:///artifacts/test_ingestion.db"
 
-from ingestion.ingest import normalize_dataframe
+from ingestion.ingest import ingest_ground_truth_csv, normalize_dataframe
 
 
 class IngestionMappingTests(unittest.TestCase):
@@ -48,6 +49,21 @@ class IngestionMappingTests(unittest.TestCase):
 
         self.assertTrue(str(normalized.iloc[0]["record_id"]).startswith("generated-"))
         self.assertIn("Generated record IDs were assigned.", " ".join(metadata["warnings"]))
+
+    def test_ingests_ground_truth_mapping(self):
+        df = pd.DataFrame(
+            [
+                {"record_a_id": "A-001", "record_b_id": "B-001"},
+                {"record_a_id": "A-002", "record_b_id": "B-002"},
+            ]
+        )
+        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as handle:
+            df.to_csv(handle.name, index=False)
+            result = ingest_ground_truth_csv(handle.name)
+
+        self.assertEqual(result["records_ingested"], 2)
+        self.assertEqual(result["schema"]["mapped_columns"]["record_a_id"], "record_a_id")
+        self.assertEqual(result["schema"]["mapped_columns"]["record_b_id"], "record_b_id")
 
 
 if __name__ == "__main__":

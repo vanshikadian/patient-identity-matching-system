@@ -5,8 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from blocking.block import build_candidate_pairs
-from common.config import get_settings
-from common.models import CandidatePair, MatchRun, Patient
+from common.models import CandidatePair, GroundTruthMatch, MatchRun, Patient
 from features.engineer import build_features
 from llm.resolver import resolve_ambiguous_pairs
 from model.evaluate import calculate_metrics, load_model_artifact
@@ -80,7 +79,7 @@ def run_matching_pipeline(db: Session, run_id: str, top_k: int = 10) -> MatchRun
     llm_lookup = {row["pair_key"]: row for row in llm_results}
 
     patient_lookup = {patient.id: patient for patient in [*records_a, *records_b]}
-    truth_lookup = _ground_truth_lookup(patient_lookup)
+    truth_lookup = _ground_truth_lookup(patient_lookup, db)
 
     for idx, row in enumerate(feature_df.to_dict(orient="records"), start=1):
         pair_key = f'{row["record_a_id"]}:{row["record_b_id"]}'
@@ -142,11 +141,10 @@ def fail_match_run(db: Session, run_id: str, message: str) -> None:
     db.commit()
 
 
-def _ground_truth_lookup(patient_lookup: dict[str, Patient]) -> dict[str, bool]:
-    path = get_settings().generated_data_dir / "matches.csv"
-    if not path.exists():
+def _ground_truth_lookup(patient_lookup: dict[str, Patient], db: Session) -> dict[str, bool]:
+    ground_truth_rows = db.execute(select(GroundTruthMatch)).scalars().all()
+    if not ground_truth_rows:
         return {}
-    df = pd.read_csv(path)
     a_by_external = {
         patient.external_id: patient.id
         for patient in patient_lookup.values()
@@ -158,9 +156,9 @@ def _ground_truth_lookup(patient_lookup: dict[str, Patient]) -> dict[str, bool]:
         if patient.source == "B"
     }
     truth = {}
-    for row in df.itertuples():
-        a_id = a_by_external.get(row.record_a_id)
-        b_id = b_by_external.get(row.record_b_id)
+    for row in ground_truth_rows:
+        a_id = a_by_external.get(row.record_a_external_id)
+        b_id = b_by_external.get(row.record_b_external_id)
         if a_id and b_id:
             truth[f"{a_id}:{b_id}"] = True
     return truth
